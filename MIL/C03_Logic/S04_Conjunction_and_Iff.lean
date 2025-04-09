@@ -63,8 +63,15 @@ example {x y : ℝ} (h : x ≤ y ∧ x ≠ y) : ¬y ≤ x := by
 example {x y : ℝ} (h : x ≤ y ∧ x ≠ y) : ¬y ≤ x :=
   fun h' ↦ h.right (le_antisymm h.left h')
 
-example {m n : ℕ} (h : m ∣ n ∧ m ≠ n) : m ∣ n ∧ ¬n ∣ m :=
-  sorry
+example {m n : ℕ} (h : m ∣ n ∧ m ≠ n) : m ∣ n ∧ ¬n ∣ m := by
+  constructor
+  apply h.left
+  by_contra h3
+  have ⟨h1, h2⟩ := h
+  have h4 : m = n := by
+    exact Nat.dvd_antisymm h1 h3
+  apply h2 h4
+
 
 example : ∃ x : ℝ, 2 < x ∧ x < 4 :=
   ⟨5 / 2, by norm_num, by norm_num⟩
@@ -73,8 +80,10 @@ example (x y : ℝ) : (∃ z : ℝ, x < z ∧ z < y) → x < y := by
   rintro ⟨z, xltz, zlty⟩
   exact lt_trans xltz zlty
 
+/-
 example (x y : ℝ) : (∃ z : ℝ, x < z ∧ z < y) → x < y :=
   fun ⟨z, xltz, zlty⟩ ↦ lt_trans xltz zlty
+-/
 
 example : ∃ x : ℝ, 2 < x ∧ x < 4 := by
   use 5 / 2
@@ -101,15 +110,45 @@ example {x y : ℝ} (h : x ≤ y) : ¬y ≤ x ↔ x ≠ y := by
 example {x y : ℝ} (h : x ≤ y) : ¬y ≤ x ↔ x ≠ y :=
   ⟨fun h₀ h₁ ↦ h₀ (by rw [h₁]), fun h₀ h₁ ↦ h₀ (le_antisymm h h₁)⟩
 
-example {x y : ℝ} : x ≤ y ∧ ¬y ≤ x ↔ x ≤ y ∧ x ≠ y :=
-  sorry
+example {x y : ℝ} : x ≤ y ∧ ¬y ≤ x ↔ x ≤ y ∧ x ≠ y := by
+  constructor
+  · intro h
+    have ⟨h₁, h₂⟩ := h
+    constructor
+    · apply h₁
+    · linarith
+  · intro h
+    have ⟨h₁, h₂⟩ := h
+    constructor
+    · apply h₁
+    · by_contra h₃
+      have : x = y := by
+        linarith
+      exfalso
+      apply h₂ this
 
-theorem aux {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 :=
-  have h' : x ^ 2 = 0 := by sorry
-  pow_eq_zero h'
+#print pow_eq_zero
+theorem aux {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 := by
+  have h' : x ^ 2 = 0 := by
+    have h1 : x^2 >= 0 := by
+      apply pow_two_nonneg x
+    have h2 : y^2 >= 0 := by
+      apply pow_two_nonneg y
+    linarith
+  apply pow_eq_zero h'
 
-example (x y : ℝ) : x ^ 2 + y ^ 2 = 0 ↔ x = 0 ∧ y = 0 :=
-  sorry
+example (x y : ℝ) : x ^ 2 + y ^ 2 = 0 ↔ x = 0 ∧ y = 0 := by
+  constructor
+  · intro h1
+    constructor
+    · apply aux h1
+    · rw [add_comm] at h1
+      apply aux h1
+  · intro h1
+    have ⟨h2, h3⟩ := h1
+    rw [h2, h3]
+    linarith
+
 
 section
 
@@ -130,7 +169,11 @@ theorem not_monotone_iff {f : ℝ → ℝ} : ¬Monotone f ↔ ∃ x y, x ≤ y �
   rfl
 
 example : ¬Monotone fun x : ℝ ↦ -x := by
-  sorry
+  dsimp [Monotone]
+  push_neg
+  use 1
+  use 2
+  constructor <;> linarith
 
 section
 variable {α : Type*} [PartialOrder α]
@@ -138,7 +181,22 @@ variable (a b : α)
 
 example : a < b ↔ a ≤ b ∧ a ≠ b := by
   rw [lt_iff_le_not_le]
-  sorry
+  constructor
+  · intro h
+    have ⟨h₁, h₂⟩ := h
+    constructor
+    · apply h₁
+    · by_contra h₃
+      apply h₂
+      apply le_of_eq
+      exact id (Eq.symm h₃)
+  · intro h
+    have ⟨h₁, h₂⟩ := h
+    constructor
+    · apply h₁
+    · by_contra h₃
+      apply h₂
+      apply le_antisymm h₁ h₃
 
 end
 
@@ -148,10 +206,26 @@ variable (a b c : α)
 
 example : ¬a < a := by
   rw [lt_iff_le_not_le]
-  sorry
+  intro h
+  have ⟨h₁, h₂⟩ := h
+  apply h₂ h₁
 
 example : a < b → b < c → a < c := by
   simp only [lt_iff_le_not_le]
-  sorry
+  intro h1
+  intro h2
+  have ⟨h3, h4⟩ := h1
+  have ⟨h5, h6⟩ := h2
+  constructor
+  · trans b
+    apply h3
+    apply h5
+  · intro h7
+    have : c <= b := by
+      trans a
+      apply h7
+      apply h3
+    apply h6
+    apply this
 
 end
